@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BOMBER BATTLE - 6P CPU対戦</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="game-container">
+    <!-- ヘッダー -->
+    <header class="game-header">
+      <div class="title-area">
+        <h1>BOMBER BATTLE</h1>
+        <div class="subtitle" id="arenaSubtitle">6-PLAYER SURVIVAL ARENA</div>
+      </div>
+      <div class="top-controls">
+        <div style="font-size: 1.1rem; font-weight: bold; color: #ffcc00;">
+          ⏱️ <span id="timeDisplay">3:00</span>
+        </div>
+        <button id="muteBtn" class="icon-btn">🔊 サウンド: ON</button>
+      </div>
+    </header>
+
+    <!-- プレイヤーHUDステータス -->
+    <div class="hud-container">
+      <!-- 1P (White Bomber) -->
+      <div class="hud-card p1" id="hud-p1">
+        <div class="hud-name">
+          <span>1P 白ボン</span>
+          <span class="status-text" style="color: #60a5fa;">生存</span>
+        </div>
+        <div class="hud-stats">
+          <span>💣 <b class="stat-bombs">1</b></span>
+          <span>🔥 <b class="stat-power">1</b></span>
+          <span>👟 <b class="stat-speed">170</b></span>
+        </div>
+      </div>
+
+      <!-- CPU 1 (Black Bomber) -->
+      <div class="hud-card p2" id="hud-p2">
+        <div class="hud-name">
+          <span>CPU 1 (黒ボン)</span>
+          <span class="status-text" style="color: #94a3b8;">生存</span>
+        </div>
+        <div class="hud-stats">
+          <span>💣 <b class="stat-bombs">1</b></span>
+          <span>🔥 <b class="stat-power">1</b></span>
+          <span>👟 <b class="stat-speed">170</b></span>
+        </div>
+      </div>
+
+      <!-- CPU 2 (Red Bomber) -->
+      <div class="hud-card p3" id="hud-p3">
+        <div class="hud-name">
+          <span>CPU 2 (赤ボン)</span>
+          <span class="status-text" style="color: #f87171;">生存</span>
+        </div>
+        <div class="hud-stats">
+          <span>💣 <b class="stat-bombs">1</b></span>
+          <span>🔥 <b class="stat-power">1</b></span>
+          <span>👟 <b class="stat-speed">170</b></span>
+        </div>
+      </div>
+
+      <!-- CPU 3 (Yellow Bomber) -->
+      <div class="hud-card p4" id="hud-p4">
+        <div class="hud-name">
+          <span>CPU 3 (黄ボン)</span>
+          <span class="status-text" style="color: #fbbf24;">生存</span>
+        </div>
+        <div class="hud-stats">
+          <span>💣 <b class="stat-bombs">1</b></span>
+          <span>🔥 <b class="stat-power">1</b></span>
+          <span>👟 <b class="stat-speed">170</b></span>
+        </div>
+      </div>
+      <div class="hud-card p5" id="hud-p5">
+        <div class="hud-name"><span>5P 緑ボン</span><span class="status-text">生存</span></div>
+        <div class="hud-stats"><span>💣 <b class="stat-bombs">1</b></span><span>🔥 <b class="stat-power">1</b></span><span>👟 <b class="stat-speed">170</b></span></div>
+      </div>
+      <div class="hud-card p6" id="hud-p6">
+        <div class="hud-name"><span>6P 紫ボン</span><span class="status-text">生存</span></div>
+        <div class="hud-stats"><span>💣 <b class="stat-bombs">1</b></span><span>🔥 <b class="stat-power">1</b></span><span>👟 <b class="stat-speed">170</b></span></div>
+      </div>
+    </div>
+
+    <p id="spectatorStatus" role="status" hidden>💣 みそボン：WASD 外周移動 / ↑→ 遠く・↓← 近く / BOMB 投げる · 撃破で復活！</p>
+
+    <div class="stage-picker">
+      <label for="stageSelect">ステージ</label>
+      <select id="stageSelect" aria-describedby="stageDescription"></select>
+      <label for="maxPlayersSelect">対戦人数</label>
+      <select id="maxPlayersSelect" aria-describedby="maxPlayersDescription"></select>
+      <span id="maxPlayersDescription">空き枠はCPUが参加</span>
+      <span id="stageDescription"></span>
+    </div>
+
+    <!-- ゲーム画面 Canvas -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- タイトル & ゲームオーバー & ロビー オーバーレイ -->
+      <div id="overlay" class="overlay">
+        <!-- 1. メインメニュー（モード選択） -->
+        <div id="viewMainMenu" class="overlay-content">
+          <h2 class="overlay-title" style="color: #ffcc00;">BOMBER BATTLE</h2>
+          <p class="overlay-desc">
+            モードを選択してください
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+            <button id="btnSingleMode" class="start-btn">👤 ひとりで遊ぶ (CPU5体対戦)</button>
+            <button id="btnOnlineMode" class="start-btn" style="background: linear-gradient(135deg, #0284c7, #2563eb);">🌐 オンライン通信対戦</button>
+          </div>
+        </div>
+
+        <!-- 2. オンラインロビー（部屋作成 / 部屋参加） -->
+        <div id="viewOnlineLobby" class="overlay-content hidden">
+          <h2 class="overlay-title" style="color: #38bdf8; font-size: 1.2rem;">ONLINE LOBBY</h2>
+          <div style="margin-bottom: 14px; text-align: left; width: 100%;">
+            <label style="font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 4px;">プレイヤー名:</label>
+            <input type="text" id="playerNameInput" maxlength="8" value="白ボン" class="lobby-input">
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+            <button id="btnCreateRoom" class="start-btn" style="background: #10b981; font-size: 0.85rem; padding: 12px;">🏠 新しい部屋を作る</button>
+            
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+              <input type="text" id="roomCodeInput" placeholder="部屋番号 (4文字)" maxlength="4" class="lobby-input" style="text-transform: uppercase; font-family: 'Press Start 2P'; font-size: 0.8rem; text-align: center;">
+              <button id="btnJoinRoom" class="icon-btn" style="padding: 10px 16px; font-size: 0.85rem; white-space: nowrap;">参加</button>
+            </div>
+            
+            <button id="btnBackToMain" class="icon-btn" style="margin-top: 6px; justify-content: center; background: transparent; border-color: #4b5563;">◀ もどる</button>
+          </div>
+          <div id="lobbyError" style="color: #ef4444; font-size: 0.75rem; margin-top: 8px; min-height: 18px;"></div>
+        </div>
+
+        <!-- 3. ルーム待機室 -->
+        <div id="viewRoomWait" class="overlay-content hidden">
+          <div style="font-size: 0.75rem; color: #94a3b8;">部屋番号</div>
+          <div id="displayRoomCode" style="font-family: 'Press Start 2P'; font-size: 1.8rem; color: #ffcc00; letter-spacing: 4px; margin: 4px 0 10px 0;">----</div>
+          <div style="font-size: 0.75rem; color: #cbd5e1; margin-bottom: 12px;">友達にこの部屋番号を教えてね！</div>
+
+          <!-- 参加者リスト -->
+          <div id="roomMemberList" class="room-members">
+            <!-- 動的挿入 -->
+          </div>
+
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; width: 100%;">
+            <button id="btnStartOnlineGame" class="start-btn" style="display: none; background: #10b981; font-size: 0.85rem; padding: 12px;">🚀 対戦スタート！</button>
+            <div id="waitHostText" style="font-size: 0.8rem; color: #94a3b8;">ホストの開始を待っています...</div>
+            <button id="btnLeaveRoom" class="icon-btn" style="justify-content: center; background: transparent; border-color: #4b5563;">退室する</button>
+          </div>
+        </div>
+
+        <!-- 4. ゲーム終了画面 -->
+        <div id="viewGameOver" class="overlay-content hidden">
+          <h2 id="gameOverTitle" class="overlay-title">VICTORY!</h2>
+          <p id="gameOverDesc" class="overlay-desc">結果</p>
+          <button id="btnRestartGame" class="start-btn">もう一度あそぶ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作ガイド -->
+    <div class="guide-container">
+      <div class="guide-item">
+        <span class="key-badge">↑ ↓ ← →</span> または <span class="key-badge">W A S D</span>
+        <span>移動</span>
+      </div>
+      <div class="guide-item">
+        <span class="key-badge">SPACE</span> または <span class="key-badge">ENTER</span>
+        <span>爆弾設置</span>
+      </div>
+      <div class="guide-item">
+        <span>💣 ボム+1 | 🔥 ファイヤー+1 | 👟 スケートUP</span>
+      </div>
+    </div>
+
+    <!-- モバイル用バーチャル操作UI -->
+    <div class="touch-controls">
+      <div class="d-pad">
+        <div id="btnUp" class="touch-btn up">▲</div>
+        <div id="btnLeft" class="touch-btn left">◀</div>
+        <div class="touch-btn center"></div>
+        <div id="btnRight" class="touch-btn right">▶</div>
+        <div id="btnDown" class="touch-btn down">▼</div>
+      </div>
+      <div class="action-buttons">
+        <div id="btnBomb" class="touch-bomb-btn">
+          <span>💣</span>
+          <span>BOMB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スクリプト読み込み -->
+  <script src="js/constants.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/stages.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/item.js"></script>
+  <script src="js/bomb.js"></script>
+  <script src="js/entity.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/misobon.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

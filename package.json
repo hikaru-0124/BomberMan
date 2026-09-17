@@ -1,0 +1,25 @@
+{
+  "name": "bomberman",
+  "version": "1.0.0",
+  "description": "HTML5 Canvas と Web Audio API を用いて作成された、4人対戦サバイバルゲーム（1P 白ボン vs CPU 3体）です。 外部ライブラリ・画像・音声ファイルに依存せず、ブラウザ上で軽快かつ高レスポンスに動作します。",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hikaru-0124/BomberMan.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hikaru-0124/BomberMan/issues"
+  },
+  "homepage": "https://github.com/hikaru-0124/BomberMan#readme",
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

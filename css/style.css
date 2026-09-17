@@ -1,0 +1,486 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=M+PLUS+Rounded+1c:wght@700;800&display=swap');
+
+:root {
+  --bg-color: #12141d;
+  --panel-bg: rgba(22, 27, 46, 0.95);
+  --border-color: #3b4261;
+  --accent-color: #ff9e3b;
+  --player-color: #3b82f6;
+  --cpu1-color: #64748b;
+  --cpu2-color: #ef4444;
+  --cpu3-color: #f59e0b;
+  --cpu4-color: #16a34a;
+  --cpu5-color: #8b5cf6;
+  --text-main: #f0f6fc;
+  --text-dim: #8b949e;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: 'M PLUS Rounded 1c', 'Press Start 2P', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+  padding: 10px;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 1100px;
+  width: 100%;
+}
+
+/* Header & Status Bar */
+.game-header {
+  width: 100%;
+  max-width: 1040px;
+  background: var(--panel-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.title-area h1 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1.2rem;
+  color: #ffcc00;
+  text-shadow: 2px 2px 0px #ff3366, 4px 4px 0px #1f1d36;
+  letter-spacing: 1px;
+}
+
+.title-area .subtitle {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.top-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.icon-btn {
+  background: #252c48;
+  border: 2px solid #414b73;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn:hover {
+  background: #353f66;
+  border-color: #6371aa;
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: translateY(1px);
+}
+
+/* Player Status Hud */
+.hud-container {
+  width: 100%;
+  max-width: 1040px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.hud-card {
+  background: var(--panel-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.3s;
+}
+.hud-card[hidden] { display: none; }
+
+.hud-card.dead {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.hud-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+}
+
+.hud-card.p1::before { background-color: var(--player-color); }
+.hud-card.p2::before { background-color: var(--cpu1-color); }
+.hud-card.p3::before { background-color: var(--cpu2-color); }
+.hud-card.p4::before { background-color: var(--cpu3-color); }
+.hud-card.p5::before { background-color: var(--cpu4-color); }
+.hud-card.p6::before { background-color: var(--cpu5-color); }
+
+.hud-name {
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hud-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #c0caf5;
+}
+
+.hud-stats span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Canvas Wrapper */
+.canvas-wrapper {
+  position: relative;
+  width: min(1016px, 100%);
+  border: 4px solid #2f3654;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+  background-color: #0b0d14;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Overlay Menus */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(11, 13, 20, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-content.hidden {
+  display: none;
+}
+
+.overlay-content {
+  text-align: center;
+  padding: 30px;
+  background: rgba(26, 32, 54, 0.95);
+  border: 3px solid #ffcc00;
+  border-radius: 16px;
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.3);
+  max-width: 440px;
+  animation: popIn 0.3s ease-out;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.overlay-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  letter-spacing: 1px;
+}
+
+.overlay-title.win {
+  color: #00ff88;
+  text-shadow: 2px 2px 0px #006633;
+}
+
+.overlay-title.lose {
+  color: #ff3366;
+  text-shadow: 2px 2px 0px #66001a;
+}
+
+.overlay-desc {
+  font-size: 0.95rem;
+  color: #c0caf5;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.start-btn {
+  background: linear-gradient(135deg, #ff9e3b, #ff5e36);
+  border: none;
+  color: #fff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.95rem;
+  padding: 14px 28px;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(255, 94, 54, 0.4);
+  transition: all 0.2s;
+}
+
+.start-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 25px rgba(255, 94, 54, 0.6);
+}
+
+.start-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Controls Guide & Footer */
+.guide-container {
+  width: 100%;
+  max-width: 1040px;
+  background: var(--panel-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-around;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.guide-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.key-badge {
+  white-space: nowrap;
+  background: #2e3654;
+  border: 1px solid #4c5885;
+  border-bottom: 3px solid #363e63;
+  padding: 3px 8px;
+  border-radius: 5px;
+  color: #fff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.65rem;
+}
+
+/* Touch Controls (Mobile) */
+.touch-controls {
+  display: none;
+  width: 100%;
+  max-width: 760px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  margin-top: 5px;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .overlay {
+    overflow-y: auto;
+    justify-content: flex-start;
+    padding: 8px;
+  }
+  .overlay-content {
+    flex-shrink: 0;
+    width: 100%;
+    padding: 14px;
+    margin: auto 0;
+  }
+  .touch-controls {
+    display: flex;
+  }
+}
+
+.d-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 56px);
+  gap: 5px;
+}
+
+.touch-btn {
+  background: rgba(46, 54, 84, 0.85);
+  border: 2px solid #586699;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.4rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  touch-action: manipulation;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.touch-btn:active {
+  background: rgba(88, 102, 153, 0.95);
+  transform: scale(0.95);
+}
+
+.touch-btn.up { grid-column: 2; grid-row: 1; }
+.touch-btn.left { grid-column: 1; grid-row: 2; }
+.touch-btn.center { grid-column: 2; grid-row: 2; opacity: 0; pointer-events: none; }
+.touch-btn.right { grid-column: 3; grid-row: 2; }
+.touch-btn.down { grid-column: 2; grid-row: 3; }
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+}
+
+.touch-bomb-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ff5252, #b71c1c);
+  border: 3px solid #ff867c;
+  color: white;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 6px 15px rgba(183, 28, 28, 0.5);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.touch-bomb-btn:active {
+  transform: scale(0.92);
+  background: #b71c1c;
+}
+
+/* Online Lobby & Room UI */
+.lobby-input {
+  width: 100%;
+  background: #181f38;
+  border: 2px solid #3b4570;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.lobby-input:focus {
+  border-color: #38bdf8;
+}
+
+.room-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  background: #111526;
+  padding: 10px;
+  border-radius: 8px;
+  border: 2px solid #283152;
+}
+
+.room-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #1a223d;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  border-left: 4px solid #64748b;
+}
+
+.room-member-row.p1 { border-left-color: var(--player-color); }
+.room-member-row.p2 { border-left-color: var(--cpu1-color); }
+.room-member-row.p3 { border-left-color: var(--cpu2-color); }
+.room-member-row.p4 { border-left-color: var(--cpu3-color); }
+.room-member-row.p5 { border-left-color: var(--cpu4-color); }
+.room-member-row.p6 { border-left-color: var(--cpu5-color); }
+
+.room-member-row .host-badge {
+  background: #ffcc00;
+  color: #111;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+/* ステージ選択は待機画面でも見える位置に表示 */
+.stage-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: #17243a;
+  border: 1px solid #385878;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+.stage-picker label { color: #bce9ff; font-weight: bold; }
+.stage-picker select {
+  padding: 8px 10px;
+  color: #f1f9ff;
+  background: #0d182b;
+  border: 1px solid #5885ac;
+  border-radius: 6px;
+  font: inherit;
+  max-width: 100%;
+}
+.stage-picker select:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
+.stage-picker select:disabled { opacity: 0.8; }
+#stageDescription { color: #acc3d8; font-size: 0.75rem; }
+#maxPlayersDescription { color: #acc3d8; font-size: 0.75rem; }

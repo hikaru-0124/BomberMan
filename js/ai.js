@@ -46,6 +46,14 @@ class AIPlayer extends Entity {
   buildDangerMap(map, bombs, explosions) {
     const danger = new Map(); // key: 'c,r', value: danger level / time
 
+    if (map.zone) {
+      for (let row = 1; row < map.rows - 1; row++) {
+        for (let col = 1; col < map.cols - 1; col++) {
+          if (map.zone.dangerous(col, row)) danger.set(`${col},${row}`, 100);
+        }
+      }
+    }
+
     // 現在の爆風
     explosions.forEach(exp => {
       exp.segments.forEach(seg => {

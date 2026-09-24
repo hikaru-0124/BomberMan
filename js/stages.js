@@ -1,8 +1,8 @@
 // ブラウザと対戦サーバーで共通のステージ一覧。
 const MAP_STAGES = Object.freeze({
   hexagon: {name: '⬡ ヘキサゴン・アリーナ', description: '6つの開始地点を持つ、大型の結晶六角形バトルフィールド。', cols: 21, rows: 17},
-  classic: {name: '🌿 グリーンフィールド', description: 'ブロックを壊して道を開く、いつもの草原。', cols: 15, rows: 13},
-  ice: {name: '❄ 氷のアリーナ', description: '中央の十字通路で攻防！ 四隅は結晶ブロック地帯。', cols: 15, rows: 13}
+  classic: {name: '🌿 グリーンフィールド', description: 'ブロックを壊して道を開く、いつもの草原。', cols: 21, rows: 17},
+  ice: {name: '❄ 氷のアリーナ', description: '中央の十字通路で攻防！ 四隅は結晶ブロック地帯。', cols: 21, rows: 17}
 });
 
 const MAX_PLAYERS = 6;

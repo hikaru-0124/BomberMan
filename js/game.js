@@ -28,6 +28,8 @@ class Game {
     this.misoBon = new MisoBonManager(this);
     this.lastTime = performance.now();
     this.roundTime = CONFIG.ROUND_TIME_LIMIT;
+    this.zoneSyncTimer = 0;
+    if (this.map) this.map.zone = new BattleZone(this.map);
     this.moveSendTimer = 0;
 
     // UI要素の参照
@@ -47,6 +49,8 @@ class Game {
     this.displayRoomCode = document.getElementById('displayRoomCode');
     this.roomMemberList = document.getElementById('roomMemberList');
     this.btnStartOnlineGame = document.getElementById('btnStartOnlineGame');
+    this.btnReady = document.getElementById('btnReady');
+    this.readyStatus = document.getElementById('readyStatus');
     this.waitHostText = document.getElementById('waitHostText');
     this.lobbyError = document.getElementById('lobbyError');
     this.stageSelect = document.getElementById('stageSelect');
@@ -110,7 +114,9 @@ class Game {
     this.maxPlayersDescription.textContent = `最大${this.maxPlayers}人。空き枠はCPUが参加`;
     this.arenaSubtitle.textContent = `${this.maxPlayers}-PLAYER SURVIVAL ARENA`;
     this.maxPlayersSelect.disabled = this.gameState === 'PLAYING' || this.gameState === 'OVER' ||
-      (this.gameMode === 'ONLINE' && networkManager.roomId);
+      (this.gameMode === 'ONLINE' && networkManager.roomId && !this.isOnlineHost);
+    const minimum = this.gameMode === 'ONLINE' ? Math.max(2, this.roomPlayers?.length || 0) : 2;
+    for (const option of this.maxPlayersSelect.options) option.disabled = Number(option.value) < minimum;
   }
 
   createStageMap() {
@@ -127,7 +133,13 @@ class Game {
         networkManager.send({type: 'set_stage', stageId: this.stageId});
       }
     });
-    this.maxPlayersSelect.addEventListener('change', () => this.setMaxPlayers(this.maxPlayersSelect.value));
+    this.maxPlayersSelect.addEventListener('change', () => {
+      const count = Number(this.maxPlayersSelect.value);
+      if (this.gameMode === 'ONLINE' && networkManager.roomId) {
+        networkManager.send({type: 'set_max_players', maxPlayers: count});
+        this.maxPlayersSelect.value = String(this.maxPlayers);
+      } else this.setMaxPlayers(count);
+    });
     // キーボード
     window.addEventListener('keydown', (e) => {
       soundManager.init();
@@ -185,8 +197,13 @@ class Game {
       location.reload(); // 再読み込みで初期化
     });
 
+    this.btnReady.addEventListener('click', () => {
+      const me = this.roomPlayers?.find(p => p.slot === this.mySlot);
+      if (me) networkManager.send({type: 'set_ready', ready: !me.ready});
+    });
+
     this.btnStartOnlineGame.addEventListener('click', () => {
-      if (this.isOnlineHost) {
+      if (this.isOnlineHost && this.roomPlayers?.length && this.roomPlayers.every(p => p.ready)) {
         // ホストがステージのブロック配置を生成して全員に配信
         const tempMap = this.createStageMap();
         const mapData = tempMap.getBlockData();
@@ -198,8 +215,8 @@ class Game {
     document.getElementById('btnRestartGame').addEventListener('click', () => {
       if (this.gameMode === 'SINGLE') {
         this.startSingleGame();
-      } else {
-        location.reload();
+      } else if (this.gameState === 'OVER') {
+        networkManager.send({type: 'return_to_room'});
       }
     });
 
@@ -251,7 +268,39 @@ class Game {
       this.renderRoomMemberList(players);
     });
 
-    networkManager.on('stage_selected', msg => this.setStage(msg.stageId));
+    networkManager.on('room_returned', msg => {
+      clearTimeout(this.gameOverTimer);
+      this.gameState = 'START';
+      this.setSpectating(false);
+      soundManager.stopBgm();
+      this.isOnlineHost = msg.players.some(p => p.slot === this.mySlot && p.isHost);
+      networkManager.isHost = this.isOnlineHost;
+      this.displayRoomCode.innerText = msg.roomId;
+      this.btnStartOnlineGame.style.display = this.isOnlineHost ? 'block' : 'none';
+      this.waitHostText.style.display = this.isOnlineHost ? 'none' : 'block';
+      this.setStage(msg.stageId);
+      this.setMaxPlayers(msg.maxPlayers);
+      this.renderRoomMemberList(msg.players);
+      this.showView('ROOM');
+    });
+
+    networkManager.on('zone_sync', msg => {
+      if (this.gameState !== 'PLAYING' || this.isOnlineHost || !this.map.zone) return;
+      this.map.zone.elapsed = msg.elapsed;
+      this.roundTime = Math.max(0, CONFIG.ROUND_TIME_LIMIT - msg.elapsed);
+    });
+
+    networkManager.on('max_players_selected', msg => {
+      const player = msg.players.find(p => p.id === networkManager.myPlayer?.id);
+      if (player) this.mySlot = player.slot;
+      this.setMaxPlayers(msg.maxPlayers);
+      this.renderRoomMemberList(msg.players);
+    });
+
+    networkManager.on('stage_selected', msg => {
+      this.setStage(msg.stageId);
+      this.renderRoomMemberList(msg.players);
+    });
 
     // 対戦スタート
     networkManager.on('game_started', (msg) => {
@@ -337,6 +386,7 @@ class Game {
       if (msg.newHost && msg.newHost === this.mySlot) {
         this.isOnlineHost = true;
         this.setStage(this.stageId);
+        this.setMaxPlayers(this.maxPlayers);
         this.btnStartOnlineGame.style.display = 'block';
         this.waitHostText.style.display = 'none';
       }
@@ -351,6 +401,9 @@ class Game {
 
   // 待機部屋のメンバーリスト描画
   renderRoomMemberList(players) {
+    this.roomPlayers = players;
+    this.updateReadyControls();
+    this.setMaxPlayers(this.maxPlayers);
     this.roomMemberList.innerHTML = '';
     const themes = PLAYER_SLOTS.map(player => ({name: `${player.slot}P ${player.name}`, color: `p${player.slot}`}));
 
@@ -364,7 +417,7 @@ class Game {
         const isMe = (p.slot === this.mySlot);
         row.innerHTML = `
           <span><b>${theme.name}</b>: ${p.name} ${isMe ? '(あなた)' : ''}</span>
-          <span>${p.isHost ? '<span class="host-badge">HOST</span>' : '<span style="color:#10b981;">準備完了</span>'}</span>
+          <span>${p.isHost ? '<span class="host-badge">HOST</span> ' : ''}${p.ready ? '<span style="color:#10b981;">準備完了</span>' : '<span style="color:#fbbf24;">準備中</span>'}</span>
         `;
       } else {
         row.innerHTML = `
@@ -374,6 +427,19 @@ class Game {
       }
       this.roomMemberList.appendChild(row);
     }
+  }
+
+  updateReadyControls() {
+    const players = this.roomPlayers || [];
+    const readyCount = players.filter(p => p.ready).length;
+    const allReady = players.length > 0 && readyCount === players.length;
+    const me = players.find(p => p.slot === this.mySlot);
+    this.btnReady.textContent = me?.ready ? '準備完了を取り消す' : '準備完了';
+    this.btnReady.setAttribute('aria-pressed', String(!!me?.ready));
+    this.btnStartOnlineGame.disabled = !allReady;
+    this.readyStatus.textContent = allReady
+      ? '全員準備完了！ ホストが対戦を開始できます'
+      : `準備完了 ${readyCount}/${players.length}人 — 全員の準備を待っています`;
   }
 
   setupTouchControls() {
@@ -425,6 +491,8 @@ class Game {
     this.particles = [];
     this.floatingTexts = [];
     this.roundTime = CONFIG.ROUND_TIME_LIMIT;
+    this.zoneSyncTimer = 0;
+    if (this.map) this.map.zone = new BattleZone(this.map);
 
     const [myConfig, ...cpuConfigs] = PLAYER_SLOTS;
     const [myCol, myRow] = getPlayerSpawn(myConfig.slot, this.stageId, this.map.cols, this.map.rows);
@@ -443,6 +511,7 @@ class Game {
     this.updateHudNames();
 
     this.gameState = 'PLAYING';
+    this.setMaxPlayers(this.maxPlayers);
     this.setStage(this.stageId);
     this.showView(null);
     soundManager.startBgm();
@@ -464,6 +533,8 @@ class Game {
     this.particles = [];
     this.floatingTexts = [];
     this.roundTime = CONFIG.ROUND_TIME_LIMIT;
+    this.zoneSyncTimer = 0;
+    if (this.map) this.map.zone = new BattleZone(this.map);
 
     this.remotePlayers = [];
     this.cpus = [];
@@ -495,6 +566,7 @@ class Game {
     this.updateHudNames();
 
     this.gameState = 'PLAYING';
+    this.setMaxPlayers(this.maxPlayers);
     this.setStage(this.stageId);
     this.showView(null);
     soundManager.startBgm();
@@ -614,6 +686,17 @@ class Game {
     }
 
     if (this.gameState !== 'PLAYING') return;
+
+    // ホストの時計で全員の縮小範囲を同期。
+    const zone = this.map.zone;
+    if (this.gameMode === 'SINGLE' || this.isOnlineHost) {
+      zone.elapsed += dt;
+      this.zoneSyncTimer -= dt;
+      if (this.gameMode === 'ONLINE' && this.zoneSyncTimer <= 0) {
+        networkManager.send({type: 'zone_sync', elapsed: zone.elapsed});
+        this.zoneSyncTimer = 0.25;
+      }
+    }
 
     // ラウンド時間カウント
     this.roundTime = Math.max(0, this.roundTime - dt);
@@ -738,6 +821,13 @@ class Game {
         if (cpu.isFlyingAway) {
           cpu.update(dt, this.map, this.bombs, (x, y) => this.createFlyTrail(x, y));
         }
+      });
+    }
+
+    if (this.gameMode === 'SINGLE' || this.isOnlineHost) {
+      zone.updateHits(dt, this.entities, victim => {
+        if (this.gameMode === 'ONLINE') this.misoBon.hit(victim);
+        else victim.kill();
       });
     }
 
@@ -867,7 +957,8 @@ class Game {
     this.setSpectating(false);
     soundManager.stopBgm();
 
-    setTimeout(() => {
+    this.gameOverTimer = setTimeout(() => {
+      document.getElementById('btnRestartGame').textContent = this.gameMode === 'ONLINE' ? '部屋に戻る（全員）' : 'もう一度あそぶ';
       this.showView('GAME_OVER');
       if (result === 'win') {
         this.gameOverTitle.className = 'overlay-title win';
@@ -893,6 +984,13 @@ class Game {
   // 描画メイン
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const zoneStatus = document.getElementById('zoneStatus');
+    zoneStatus.hidden = this.gameState !== 'PLAYING';
+    if (this.gameState === 'PLAYING' && this.map?.zone) {
+      const zone = this.map.zone;
+      const next = zone.nextIn;
+      zoneStatus.textContent = `${next === null ? '最終安全地帯' : `安全地帯の縮小まで ${Math.max(0, Math.ceil(next))}秒`} ｜ 赤い範囲に3秒間とどまると脱落${this.player?.alive && zone.outside(this.player.col, this.player.row) ? ' ｜ ⚠ 中央へ逃げて！' : ''}`;
+    }
 
     if (this.map) {
       // 1. マップ
@@ -967,6 +1065,7 @@ class Game {
         this.ctx.fillText(ft.text, ft.x, ft.y);
         this.ctx.restore();
       });
+      if (this.gameState === 'PLAYING') this.map.zone?.render(this.ctx);
       this.misoBon.render(this.ctx);
     }
   }

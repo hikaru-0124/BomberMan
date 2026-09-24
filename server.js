@@ -83,7 +83,7 @@ class Room {
   constructor(id) {
     this.id = id;
     this.clients = new Map(); // ws -> { id, slot, name }
-    this.state = 'LOBBY';     // 'LOBBY' | 'PLAYING'
+    this.state = 'LOBBY';     // 'LOBBY' | 'PLAYING' | 'OVER'
     this.hostWs = null;
     this.mapData = null;
     this.stageId = 'classic';
@@ -106,7 +106,7 @@ class Room {
     if (!slot) return null;
 
     const clientId = generateId(6);
-    const clientInfo = { id: clientId, slot, name: name || `プレイヤー ${slot}` };
+    const clientInfo = { id: clientId, slot, ready: false, name: name || `プレイヤー ${slot}` };
     this.clients.set(ws, clientInfo);
 
     if (!this.hostWs) {
@@ -138,6 +138,10 @@ class Room {
     }
   }
 
+  resetReady() {
+    for (const member of this.clients.values()) member.ready = false;
+  }
+
   getPlayerList() {
     const list = [];
     for (const [cWs, info] of this.clients.entries()) {
@@ -145,6 +149,7 @@ class Room {
         id: info.id,
         slot: info.slot,
         name: info.name,
+        ready: info.ready,
         isHost: (cWs === this.hostWs)
       });
     }
@@ -234,10 +239,55 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        // 試合後は接続・部屋番号を保ったまま全員で待機画面へ戻る。
+        case 'return_to_room': {
+          if (!currentRoom || currentRoom.state !== 'OVER') return;
+          currentRoom.state = 'LOBBY';
+          currentRoom.mapData = null;
+          currentRoom.resetReady();
+          currentRoom.broadcast({
+            type: 'room_returned',
+            roomId: currentRoom.id,
+            players: currentRoom.getPlayerList(),
+            stageId: currentRoom.stageId,
+            maxPlayers: currentRoom.maxPlayers
+          });
+          break;
+        }
+
+        case 'set_max_players': {
+          if (!currentRoom || currentRoom.state !== 'LOBBY' || currentRoom.hostWs !== ws) return;
+          const count = data.maxPlayers;
+          if (!Number.isInteger(count) || count < 2 || count > MAX_PLAYERS) return;
+          if (count >= currentRoom.clients.size) {
+            if (currentRoom.maxPlayers !== count) currentRoom.resetReady();
+            currentRoom.maxPlayers = count;
+            // 退出で空いたスロットを詰め、全参加者を新しい定員内に収める。
+            const members = [...currentRoom.clients.values()].sort((a, b) => a.slot - b.slot);
+            if (members.some(member => member.slot > count)) {
+              members.forEach((member, index) => { member.slot = index + 1; });
+            }
+          }
+          currentRoom.broadcast({type: 'max_players_selected',
+            maxPlayers: currentRoom.maxPlayers, players: currentRoom.getPlayerList()});
+          break;
+        }
+
+        case 'set_ready': {
+          if (!currentRoom || currentRoom.state !== 'LOBBY' || typeof data.ready !== 'boolean') return;
+          const member = currentRoom.clients.get(ws);
+          if (!member) return;
+          member.ready = data.ready;
+          currentRoom.broadcast({type: 'room_update', players: currentRoom.getPlayerList()});
+          break;
+        }
+
         case 'set_stage': {
           if (!currentRoom || currentRoom.state !== 'LOBBY' || currentRoom.hostWs !== ws) return;
-          currentRoom.stageId = normalizeStageId(data.stageId);
-          currentRoom.broadcast({type: 'stage_selected', stageId: currentRoom.stageId});
+          const stageId = normalizeStageId(data.stageId);
+          if (currentRoom.stageId !== stageId) currentRoom.resetReady();
+          currentRoom.stageId = stageId;
+          currentRoom.broadcast({type: 'stage_selected', stageId: currentRoom.stageId, players: currentRoom.getPlayerList()});
           break;
         }
 
@@ -245,10 +295,12 @@ wss.on('connection', (ws) => {
         case 'start_game': {
           if (!currentRoom || currentRoom.hostWs !== ws || currentRoom.state !== 'LOBBY') return;
 
+          if (![...currentRoom.clients.values()].every(member => member.ready)) return;
+
           currentRoom.state = 'PLAYING';
           // マップのブロック配置データを生成して共通化
           currentRoom.mapData = data.mapData;
-          currentRoom.stageId = normalizeStageId(data.stageId);
+          // ステージは全員が準備した待機室の設定を使用する。
 
           currentRoom.broadcast({
             type: 'game_started',
@@ -328,6 +380,13 @@ wss.on('connection', (ws) => {
           if (!currentRoom || currentRoom.state !== 'PLAYING' || currentRoom.hostWs !== ws) return;
           currentRoom.broadcast(data, ws);
           if (data.type === 'round_over') currentRoom.state = 'OVER';
+          break;
+        }
+
+        case 'zone_sync': {
+          if (!currentRoom || currentRoom.state !== 'PLAYING' || currentRoom.hostWs !== ws ||
+              !Number.isFinite(data.elapsed) || data.elapsed < 0 || data.elapsed > 180) return;
+          currentRoom.broadcast({type: 'zone_sync', elapsed: data.elapsed}, ws);
           break;
         }
 

@@ -484,3 +484,5 @@ body {
 .stage-picker select:disabled { opacity: 0.8; }
 #stageDescription { color: #acc3d8; font-size: 0.75rem; }
 #maxPlayersDescription { color: #acc3d8; font-size: 0.75rem; }
+
+.start-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }

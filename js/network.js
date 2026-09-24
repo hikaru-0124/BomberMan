@@ -149,6 +149,15 @@ class NetworkManager {
         this.trigger('item_collected', msg);
         break;
 
+      case 'max_players_selected': {
+        const player = msg.players.find(p => p.id === this.myPlayer?.id);
+        if (player) this.myPlayer = player;
+        this.trigger('max_players_selected', msg);
+        break;
+      }
+
+      case 'zone_sync':
+      case 'room_returned':
       case 'stage_selected':
       case 'miso_move':
       case 'miso_throw':

@@ -40,12 +40,14 @@ test('hexagon arena has six equal spawn zones and dark void outside its walls', 
  }
 });
 test('ice arena has an open cross and symmetric quadrants', () => {
- const map=new GameMap(15,13,'ice');
- for(let r=1;r<12;r++) assert.equal(map.getTile(7,r),TILE.EMPTY);
- for(let c=1;c<14;c++) assert.equal(map.getTile(c,6),TILE.EMPTY);
- for(let r=0;r<13;r++)for(let c=0;c<15;c++) {
-  assert.equal(map.getTile(c,r),map.getTile(14-c,r));
-  assert.equal(map.getTile(c,r),map.getTile(c,12-r));
+ const {cols,rows}=getStageSize('ice'), map=new GameMap(cols,rows,'ice');
+ assert.deepEqual([cols,rows],[21,17]);
+ assert.deepEqual(Object.values(getStageSize('classic')),[21,17]);
+ for(let r=1;r<rows-1;r++) assert.equal(map.getTile(Math.floor(cols/2),r),TILE.EMPTY);
+ for(let c=1;c<cols-1;c++) assert.equal(map.getTile(c,Math.floor(rows/2)),TILE.EMPTY);
+ for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) {
+  assert.equal(map.getTile(c,r),map.getTile(cols-1-c,r));
+  assert.equal(map.getTile(c,r),map.getTile(c,rows-1-r));
  }
  assert.equal(new GameMap().getTile(2,6),TILE.WALL,'classic keeps the original pillars');
 });

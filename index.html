@@ -148,7 +148,9 @@
           </div>
 
           <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; width: 100%;">
-            <button id="btnStartOnlineGame" class="start-btn" style="display: none; background: #10b981; font-size: 0.85rem; padding: 12px;">🚀 対戦スタート！</button>
+            <button id="btnReady" class="start-btn" aria-pressed="false" style="font-size: 0.85rem; padding: 12px;">準備完了</button>
+            <p id="readyStatus" role="status" style="font-size: 0.8rem; color: #cbd5e1; margin: 0;">全員の準備完了を待っています</p>
+            <button disabled id="btnStartOnlineGame" class="start-btn" style="display: none; background: #10b981; font-size: 0.85rem; padding: 12px;">🚀 対戦スタート！</button>
             <div id="waitHostText" style="font-size: 0.8rem; color: #94a3b8;">ホストの開始を待っています...</div>
             <button id="btnLeaveRoom" class="icon-btn" style="justify-content: center; background: transparent; border-color: #4b5563;">退室する</button>
           </div>
@@ -177,6 +179,8 @@
         <span>💣 ボム+1 | 🔥 ファイヤー+1 | 👟 スケートUP</span>
       </div>
     </div>
+
+    <p id="zoneStatus" role="status" style="text-align:center; color:#fbbf24;" hidden></p>
 
     <!-- モバイル用バーチャル操作UI -->
     <div class="touch-controls">
@@ -208,6 +212,7 @@
   <script src="js/ai.js"></script>
   <script src="js/network.js"></script>
   <script src="js/misobon.js"></script>
+  <script src="js/zone.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
